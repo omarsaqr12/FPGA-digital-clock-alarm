@@ -1,0 +1,66 @@
+# Vivado Files
+*.jou
+*.log
+*.str
+*.xpr
+*.cache/
+*.hw/
+*.ip_user_files/
+*.runs/
+*.sim/
+*.srcs/sim_1/
+.Xil/
+
+# Generated Files
+*.bit
+*.bin
+*.dcp
+*.ltx
+*.rpt
+*.xml
+*.html
+*.pb
+*.tcl
+*.vdi
+*.vds
+*.wdb
+*.wcfg
+*.wdf
+
+# Temporary Files
+*~
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# OS Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE Files
+.vscode/
+.idea/
+*.sublime-*
+
+# Simulation Files
+*.vcd
+*.shm
+*.trn
+*.dsn
+*.history
+
+# Implementation Reports
+*_utilization_*
+*_timing_*
+*_power_*
+*_drc_*
+*_methodology_*
+*_route_status*
+*_clock_utilization*
+*_bus_skew*
+
+# Backup Files
+*.backup.*
+*_backup_*

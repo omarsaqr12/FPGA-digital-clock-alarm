@@ -87,7 +87,7 @@ module digital_clock_top(
         case (state)
         display_clock :begin
         if (z_flag)begin
-              LD = {0,0,0,0,clk_out}; //Blinking at LD[0]
+              LD = {4'b0000,clk_out}; //Blinking at LD[0]
               nextstate = alarm_mode;
               selector_clk=clk_out;
               sec_en=1;
@@ -420,7 +420,7 @@ module digital_clock_top(
             alarm_hour_en=0;  
           end 
           else begin 
-              LD = {0,0,0,0,clk_out}; // blinking at LD[0]
+              LD = {4'b0000,clk_out}; // blinking at LD[0]
               nextstate = alarm_mode;
               selector_clk=clk_out;
               sec_en=1;

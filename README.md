@@ -1,51 +1,66 @@
-# FPGA digital clock and alarm (Basys 3)
+# FPGA digital clock & alarm
 
-A **three-person Digital Design course project** implementing a 24-hour clock and configurable alarm in Verilog for the Digilent Basys 3 (Artix-7). The design contains time and alarm counters, button input processing, a mode controller, and a multiplexed four-digit seven-segment display. This repository preserves both the original Vivado-era sources and a separately organized RTL copy. **Physical-board operation and timing closure have not been independently reverified for this review.**
+**Verilog · Digilent Basys 3 (Artix-7) · Digital Design course project**  
+[![RTL focused smoke tests](https://github.com/omarsaqr12/FPGA-digital-clock-alarm/actions/workflows/rtl-smoke.yml/badge.svg?branch=main)](https://github.com/omarsaqr12/FPGA-digital-clock-alarm/actions/workflows/rtl-smoke.yml)
 
-## What to inspect first
+A 24-hour clock and configurable alarm **RTL design** targeting the Basys 3 FPGA. It combines cascaded time counters, a button-driven mode controller, alarm-time storage, and a multiplexed four-digit seven-segment display. Developed collaboratively by **Adham Ali, Omar Saqr, and Ebram Thabet** at the American University in Cairo.
 
-| Area | Source | What it does |
-| --- | --- | --- |
-| Top-level control | [`digital_clock_top.v`](hardware/verilog_sources/digital_clock_top.v) | Mode selection, display routing, alarm comparison, LED and buzzer output |
-| Timekeeping | [`clock_counter.v`](hardware/verilog_sources/clock_counter.v), [`counter_x_bit.v`](hardware/verilog_sources/counter_x_bit.v) | Cascaded seconds/minutes/hours and wraparound |
-| Alarm setting | [`alarm_counter.v`](hardware/verilog_sources/alarm_counter.v) | Separate 24-hour alarm registers |
-| Inputs | [`push_button_detector.v`](hardware/verilog_sources/push_button_detector.v), [`debouncer.v`](hardware/verilog_sources/debouncer.v), [`synchronizer.v`](hardware/verilog_sources/synchronizer.v), [`fsm.v`](hardware/verilog_sources/fsm.v) | Sampling, filtering, synchronization and one-pulse detection |
-| Display and board | [`seven_segment_display.v`](hardware/verilog_sources/seven_segment_display.v), [`basys3_constraints.xdc`](hardware/constraints/basys3_constraints.xdc) | Digit multiplexing, segment patterns and pin assignments |
-| Design artifacts | [`DD1_Project2_Report.pdf`](DD1_Project2_Report.pdf), [`ASM.pdf`](ASM.pdf), [`final_logisim.circ`](final_logisim.circ) | Original course report, state diagram and Logisim circuit (not independently audited here) |
+**What is verified:** the maintained RTL elaborates with Icarus Verilog, and focused display and modulo-counter regressions pass in [GitHub Actions](https://github.com/omarsaqr12/FPGA-digital-clock-alarm/actions/workflows/rtl-smoke.yml). **What is not verified here:** complete alarm behavior, FPGA board operation, synthesis utilization, and timing closure. The original course artifacts are preserved separately.
 
-The **working-copy source set** is `hardware/verilog_sources/`. The nested [`DigitalDesign_Project 2/`](DigitalDesign_Project%202/) directory is a preserved, differently named original source snapshot; do **not** add both trees to one Vivado or Icarus project because they define overlapping modules. The original documentation is retained under [`docs/`](docs/), explicitly as historical material rather than verified test evidence.
+## Design at a glance
 
-## Explore or simulate
+```text
+100 MHz board clock ──> clock dividers ──> time base / button & display sampling
+                                                    │
+Buttons ──> input filtering & pulse detection ──> mode controller
+                                                    │
+                               time counter <───────┤──────> alarm counter
+                                      │             │              │
+                                      └──────> display selection <─┘
+                                                     │
+                                             four-digit 7-segment
 
-You need a Verilog simulator such as Icarus Verilog (`iverilog` and `vvp`), or Vivado for synthesis and board programming. From the repository root:
-
-```bash
-# Check the canonical RTL elaborates; this does not establish board timing.
-iverilog -g2012 -s digital_clock_top -o /tmp/digital_clock_top.vvp hardware/verilog_sources/*.v
-
-# Run focused regression tests for a changing display input and counter wraparound.
-iverilog -g2012 -s tb_seven_segment_display -o /tmp/tb_display.vvp \
-  simulation/tb_seven_segment_display.v hardware/verilog_sources/seven_segment_display.v
-vvp /tmp/tb_display.vvp
-iverilog -g2012 -s tb_counter_x_bit -o /tmp/tb_counter.vvp \
-  simulation/tb_counter_x_bit.v hardware/verilog_sources/counter_x_bit.v
-vvp /tmp/tb_counter.vvp
+                      time = alarm ──> alarm mode ──> LED / buzz_en
 ```
 
-These **focused tests are not a system-level alarm or FPGA test**. The repository still needs a top-level testbench covering mode transitions, midnight rollover, setting time and alarm, dismissal, and generated-clock transitions.
+| Engineering area | Start with | Implementation |
+| --- | --- | --- |
+| Controller & alarm match | [`digital_clock_top.v`](hardware/verilog_sources/digital_clock_top.v) | Mode transitions, button actions, display selection and alarm outputs |
+| Timekeeping | [`clock_counter.v`](hardware/verilog_sources/clock_counter.v) · [`counter_x_bit.v`](hardware/verilog_sources/counter_x_bit.v) | Cascaded modulo-60 seconds/minutes and modulo-24 hours |
+| Alarm storage | [`alarm_counter.v`](hardware/verilog_sources/alarm_counter.v) | Independently adjustable hours and minutes |
+| User interface | [`push_button_detector.v`](hardware/verilog_sources/push_button_detector.v) · [`seven_segment_display.v`](hardware/verilog_sources/seven_segment_display.v) | Button conditioning/one-pulse detection and active-low digit multiplexing |
 
-For the board, create a Vivado RTL project targeting **xc7a35tcpg236-1**; add only `hardware/verilog_sources/*.v`, choose `digital_clock_top` as top, and add [`hardware/constraints/basys3_constraints.xdc`](hardware/constraints/basys3_constraints.xdc). Inspect generated-clock constraints and timing reports before programming. Reset is mapped to SW0 and `enable` to SW1; **`enable` is declared but not used in the current top-level RTL**, so SW1 does not pause the clock. See the original report for the intended controls and compare them with the actual RTL.
+See the [hardware file map](hardware/README.md) for the remaining modules and the [Basys 3 pin constraints](hardware/constraints/basys3_constraints.xdc). The [original course report](DD1_Project2_Report.pdf), [state-machine diagram](ASM.pdf), [datapath/control diagram](%28DP%20CU%29%20Diagram.png), and [Logisim circuit](final_logisim.circ) are retained as historical design material, **not newly validated test evidence**.
 
-## Engineering limitations and evidence
+## Run the focused RTL checks
 
-- The counter implements 0–59 seconds and minutes and 0–23 hours, with separate alarm registers. This is an implementation observation, **not** an independently executed 24-hour accuracy test.
-- The output called `buzz_en` follows the approximately **1 Hz** alarm LED signal (`LD[0]`); there is no audio-frequency tone generator in the reviewed top-level implementation. An attached passive buzzer should **not** be advertised as a validated audible alarm.
-- The 100 MHz input is divided using flip-flop logic into approximately 200 Hz and 1 Hz clocks, and a combinational selector switches the clock-counter input between them. This requires generated-clock/timing and glitch/CDC investigation before asserting safe hardware timing. The board constraint file does not itself prove setup/hold closure.
-- No synthesis utilization, routed timing reports, bitstream, or board validation logs are included in the reviewed RTL tree. Prior README estimates and unchecked testing checkboxes are preserved only in historical documentation.
-- The regression tests added in this review target two small components. They have not been run locally where a Verilog simulator is unavailable; see the PR checks for any CI results.
+Install [Icarus Verilog](https://steveicarus.github.io/iverilog/) (`iverilog` and `vvp`), then run from the repository root:
 
-## Contributors and provenance
+```bash
+# Compile/elaborate the maintained top-level RTL.
+iverilog -g2012 -s digital_clock_top -o /tmp/clock_top.vvp hardware/verilog_sources/*.v
 
-This was a collaborative course project by **Adham Ali, Omar Saqr, and Ebram Thabet**. All three are credited in the RTL headers. The repository history identifies the collaborators as [AdhamALI68](https://github.com/AdhamALI68) and [BeTechBo](https://github.com/BeTechBo); consult the original history for versions and attribution. Individual module ownership has not been established from the available records, so none is claimed here. The original report and sources remain unmodified.
+# Display decoding and response to changes on the selected digit.
+iverilog -g2012 -s tb_seven_segment_display -o /tmp/display.vvp \
+  simulation/tb_seven_segment_display.v hardware/verilog_sources/seven_segment_display.v
+vvp /tmp/display.vvp
 
-This repository does not contain an explicit software license. Course-project provenance does not by itself grant redistribution or commercial-use rights.
+# Counter wraparound, direction, and enable behavior.
+iverilog -g2012 -s tb_counter_x_bit -o /tmp/counter.vvp \
+  simulation/tb_counter_x_bit.v hardware/verilog_sources/counter_x_bit.v
+vvp /tmp/counter.vvp
+```
+
+The same checks run in [CI](.github/workflows/rtl-smoke.yml). They do **not** exercise a full 24-hour run, button-driven alarm sequence, or a programmed board.
+
+### Vivado project setup
+
+Create an RTL project for `xc7a35tcpg236-1`; add **only** `hardware/verilog_sources/*.v`, set `digital_clock_top` as top, and add [`hardware/constraints/basys3_constraints.xdc`](hardware/constraints/basys3_constraints.xdc). The separate [`DigitalDesign_Project 2/`](DigitalDesign_Project%202/) folder is an original Vivado-era source snapshot with overlapping module definitions: do **not** compile both source trees together. The constraints map reset to SW0 and an `enable` input to SW1, but the current top-level RTL does not use `enable`.
+
+## Known engineering limits
+
+- The design divides and selects internally generated clocks; safe clock switching, generated-clock constraints, and clock-domain timing require a dedicated review before claiming timing closure.
+- `buzz_en` follows the alarm LED's approximately 1 Hz blink, **not** a verified audio-frequency tone generator. Do not assume a passive buzzer produces an audible alarm.
+- Full alarm-state regressions, synthesis/timing reports, and physical Basys 3 bring-up have not been independently reproduced in this review. Historical utilization estimates and testing claims are archived in the [original README](docs/README_original_2025.md), not presented as new measurements.
+
+**Provenance:** This is a three-person course project; the repository does not establish individual module ownership. The [original RTL snapshot](DigitalDesign_Project%202/) and [original documentation](docs/) remain available. No explicit reuse license is provided in this repository.

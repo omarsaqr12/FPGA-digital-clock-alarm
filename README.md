@@ -1,260 +1,51 @@
-# FPGA Digital Clock with Alarm
+# FPGA digital clock and alarm (Basys 3)
 
-A digital clock implementation with alarm functionality for the Basys 3 FPGA development board. This project demonstrates advanced digital design concepts including finite state machines, counters, seven-segment display multiplexing, and button debouncing.
+A **three-person Digital Design course project** implementing a 24-hour clock and configurable alarm in Verilog for the Digilent Basys 3 (Artix-7). The design contains time and alarm counters, button input processing, a mode controller, and a multiplexed four-digit seven-segment display. This repository preserves both the original Vivado-era sources and a separately organized RTL copy. **Physical-board operation and timing closure have not been independently reverified for this review.**
 
-## 🔧 Features
+## What to inspect first
 
-- **Digital Clock Display**: Real-time hour:minute display on four 7-segment displays
-- **Alarm Functionality**: Set and trigger alarms with visual and audio feedback
-- **Interactive Controls**: Five-button interface for time and alarm adjustment
-- **State Machine Design**: Robust FSM implementation for mode switching
-- **Button Debouncing**: Hardware debouncing for reliable button input
-- **Visual Feedback**: LED indicators for different operating modes
-- **Audio Alert**: Buzzer output when alarm triggers
+| Area | Source | What it does |
+| --- | --- | --- |
+| Top-level control | [`digital_clock_top.v`](hardware/verilog_sources/digital_clock_top.v) | Mode selection, display routing, alarm comparison, LED and buzzer output |
+| Timekeeping | [`clock_counter.v`](hardware/verilog_sources/clock_counter.v), [`counter_x_bit.v`](hardware/verilog_sources/counter_x_bit.v) | Cascaded seconds/minutes/hours and wraparound |
+| Alarm setting | [`alarm_counter.v`](hardware/verilog_sources/alarm_counter.v) | Separate 24-hour alarm registers |
+| Inputs | [`push_button_detector.v`](hardware/verilog_sources/push_button_detector.v), [`debouncer.v`](hardware/verilog_sources/debouncer.v), [`synchronizer.v`](hardware/verilog_sources/synchronizer.v), [`fsm.v`](hardware/verilog_sources/fsm.v) | Sampling, filtering, synchronization and one-pulse detection |
+| Display and board | [`seven_segment_display.v`](hardware/verilog_sources/seven_segment_display.v), [`basys3_constraints.xdc`](hardware/constraints/basys3_constraints.xdc) | Digit multiplexing, segment patterns and pin assignments |
+| Design artifacts | [`DD1_Project2_Report.pdf`](DD1_Project2_Report.pdf), [`ASM.pdf`](ASM.pdf), [`final_logisim.circ`](final_logisim.circ) | Original course report, state diagram and Logisim circuit (not independently audited here) |
 
-## 🎯 System Overview
+The **working-copy source set** is `hardware/verilog_sources/`. The nested [`DigitalDesign_Project 2/`](DigitalDesign_Project%202/) directory is a preserved, differently named original source snapshot; do **not** add both trees to one Vivado or Icarus project because they define overlapping modules. The original documentation is retained under [`docs/`](docs/), explicitly as historical material rather than verified test evidence.
 
-The system operates in multiple modes controlled by button inputs:
+## Explore or simulate
 
-### Operating Modes
+You need a Verilog simulator such as Icarus Verilog (`iverilog` and `vvp`), or Vivado for synthesis and board programming. From the repository root:
 
-1. **Display Mode** - Shows current time (default)
-2. **Clock Hour Adjustment** - Adjust current hour
-3. **Clock Minute Adjustment** - Adjust current minute
-4. **Alarm Hour Setting** - Set alarm hour
-5. **Alarm Minute Setting** - Set alarm minute
-6. **Alarm Mode** - Active when alarm triggers
+```bash
+# Check the canonical RTL elaborates; this does not establish board timing.
+iverilog -g2012 -s digital_clock_top -o /tmp/digital_clock_top.vvp hardware/verilog_sources/*.v
 
-### Controls
-
-- **BTNC (Center)**: Mode selection and confirmation
-- **BTNL (Left)**: Navigate between modes (left direction)
-- **BTNR (Right)**: Navigate between modes (right direction)
-- **BTNU (Up)**: Increment time/alarm values
-- **BTND (Down)**: Decrement time/alarm values
-
-### Visual Indicators
-
-- **LED 0**: Blinks when alarm is active
-- **LED 1-4**: Show current operating mode
-- **7-Segment Display**: Shows time in HH:MM format with decimal point separator
-
-## 🏗️ Architecture
-
-### Top-Level Module: `digital_clock_top.v`
-
-Main system controller implementing the finite state machine and coordinating all subsystems.
-
-### Core Modules
-
-#### Clock Management
-
-- **`clock_counter.v`**: Manages hours, minutes, and seconds counting
-- **`alarm_counter.v`**: Handles alarm time setting and storage
-- **`clock_divider.v`**: Generates 1Hz and 200Hz clocks from 100MHz system clock
-
-#### Display System
-
-- **`seven_segment_display.v`**: Drives 4-digit 7-segment display with multiplexing
-- **`counter_x_bit.v`**: Generic parameterizable counter module
-
-#### Input Processing
-
-- **`push_button_detector.v`**: Complete button processing pipeline
-- **`debouncer.v`**: Hardware debouncing using shift registers
-- **`synchronizer.v`**: Clock domain synchronization
-- **`fsm.v`**: Button press detection finite state machine
-
-## 📁 Project Structure
-
-```
-fpga-digital-clock/
-├── hardware/
-│   ├── verilog_sources/          # All Verilog source files
-│   │   ├── digital_clock_top.v   # Top-level module
-│   │   ├── clock_counter.v       # Time counting logic
-│   │   ├── alarm_counter.v       # Alarm time management
-│   │   ├── clock_divider.v       # Clock generation
-│   │   ├── seven_segment_display.v # Display driver
-│   │   ├── counter_x_bit.v       # Generic counter
-│   │   ├── push_button_detector.v # Button processing
-│   │   ├── debouncer.v           # Input debouncing
-│   │   ├── synchronizer.v        # Clock synchronization
-│   │   └── fsm.v                 # Button FSM
-│   └── constraints/
-│       └── basys3_constraints.xdc # Pin assignments
-├── docs/                         # Documentation
-├── images/                       # System diagrams
-├── simulation/                   # Testbenches (if any)
-├── final_logisim.circ           # Logisim circuit file
-└── README.md                    # This file
+# Run focused regression tests for a changing display input and counter wraparound.
+iverilog -g2012 -s tb_seven_segment_display -o /tmp/tb_display.vvp \
+  simulation/tb_seven_segment_display.v hardware/verilog_sources/seven_segment_display.v
+vvp /tmp/tb_display.vvp
+iverilog -g2012 -s tb_counter_x_bit -o /tmp/tb_counter.vvp \
+  simulation/tb_counter_x_bit.v hardware/verilog_sources/counter_x_bit.v
+vvp /tmp/tb_counter.vvp
 ```
 
-## 🚀 Getting Started
+These **focused tests are not a system-level alarm or FPGA test**. The repository still needs a top-level testbench covering mode transitions, midnight rollover, setting time and alarm, dismissal, and generated-clock transitions.
 
-### Prerequisites
+For the board, create a Vivado RTL project targeting **xc7a35tcpg236-1**; add only `hardware/verilog_sources/*.v`, choose `digital_clock_top` as top, and add [`hardware/constraints/basys3_constraints.xdc`](hardware/constraints/basys3_constraints.xdc). Inspect generated-clock constraints and timing reports before programming. Reset is mapped to SW0 and `enable` to SW1; **`enable` is declared but not used in the current top-level RTL**, so SW1 does not pause the clock. See the original report for the intended controls and compare them with the actual RTL.
 
-- Xilinx Vivado Design Suite (2018.2 or later)
-- Basys 3 FPGA Development Board
-- USB cable for programming
+## Engineering limitations and evidence
 
-### Hardware Setup
+- The counter implements 0–59 seconds and minutes and 0–23 hours, with separate alarm registers. This is an implementation observation, **not** an independently executed 24-hour accuracy test.
+- The output called `buzz_en` follows the approximately **1 Hz** alarm LED signal (`LD[0]`); there is no audio-frequency tone generator in the reviewed top-level implementation. An attached passive buzzer should **not** be advertised as a validated audible alarm.
+- The 100 MHz input is divided using flip-flop logic into approximately 200 Hz and 1 Hz clocks, and a combinational selector switches the clock-counter input between them. This requires generated-clock/timing and glitch/CDC investigation before asserting safe hardware timing. The board constraint file does not itself prove setup/hold closure.
+- No synthesis utilization, routed timing reports, bitstream, or board validation logs are included in the reviewed RTL tree. Prior README estimates and unchecked testing checkboxes are preserved only in historical documentation.
+- The regression tests added in this review target two small components. They have not been run locally where a Verilog simulator is unavailable; see the PR checks for any CI results.
 
-1. Connect the Basys 3 board to your computer via USB
-2. Ensure the board is powered on
-3. Optional: Connect a buzzer to JA1 pin for audio alarm
+## Contributors and provenance
 
-### Building the Project
+This was a collaborative course project by **Adham Ali, Omar Saqr, and Ebram Thabet**. All three are credited in the RTL headers. The repository history identifies the collaborators as [AdhamALI68](https://github.com/AdhamALI68) and [BeTechBo](https://github.com/BeTechBo); consult the original history for versions and attribution. Individual module ownership has not been established from the available records, so none is claimed here. The original report and sources remain unmodified.
 
-1. **Create New Vivado Project**
-
-   ```
-   - Launch Vivado
-   - Create new RTL project
-   - Select Basys 3 board (xc7a35tcpg236-1)
-   ```
-
-2. **Add Source Files**
-
-   ```
-   - Add all .v files from hardware/verilog_sources/
-   - Set digital_clock_top.v as top module
-   - Add basys3_constraints.xdc as constraints file
-   ```
-
-3. **Synthesis and Implementation**
-
-   ```
-   - Run Synthesis
-   - Run Implementation
-   - Generate Bitstream
-   ```
-
-4. **Programming**
-   ```
-   - Open Hardware Manager
-   - Connect to target board
-   - Program device with generated bitstream
-   ```
-
-## 🎮 Usage Instructions
-
-### Initial Setup
-
-1. After programming, the clock starts at 00:00
-2. The display shows the current time in HH:MM format
-3. Use the controls to set the correct time
-
-### Setting Current Time
-
-1. Press **BTNC** to enter clock adjustment mode (LED indicators will show mode)
-2. Press **BTNR** to move to minute adjustment or **BTNL** to move to hour adjustment
-3. Use **BTNU/BTND** to increment/decrement values
-4. Press **BTNC** to return to display mode
-
-### Setting Alarm
-
-1. From display mode, press **BTNC** then navigate with **BTNL/BTNR** to alarm modes
-2. LEDs 1-4 will indicate alarm adjustment mode
-3. Use **BTNU/BTND** to set desired alarm time
-4. Press **BTNC** to return to display mode
-
-### Alarm Operation
-
-- When current time matches alarm time, LED 0 blinks and buzzer sounds
-- Press any button to dismiss the alarm
-- Alarm automatically rearms for the next day
-
-## ⚡ Technical Specifications
-
-### Clock Frequencies
-
-- System Clock: 100 MHz (Basys 3 onboard)
-- Time Base: 1 Hz (for seconds counting)
-- Button Sampling: 200 Hz (for debouncing)
-- Display Refresh: ~200 Hz (for multiplexing)
-
-### Resource Utilization
-
-- Logic Cells: ~500 LUTs
-- Flip-Flops: ~200 registers
-- Block RAM: None
-- DSP Slices: None
-
-### Timing Constraints
-
-- All paths meet timing at 100 MHz
-- No critical warnings in implementation
-
-## 🔬 Design Methodology
-
-### State Machine Design
-
-The main controller uses a Mealy finite state machine with the following states:
-
-- `DISPLAY_CLOCK`: Normal time display
-- `CLK_HOUR`: Hour adjustment mode
-- `CLK_MIN`: Minute adjustment mode
-- `ALARM_HOUR`: Alarm hour setting
-- `ALARM_MIN`: Alarm minute setting
-- `ALARM_MODE`: Active alarm state
-
-### Button Processing Pipeline
-
-1. **Mechanical Input**: Raw button signal
-2. **Debouncing**: 3-stage shift register filter
-3. **Synchronization**: 2-stage synchronizer for clock domain
-4. **Edge Detection**: FSM generates single pulse per press
-
-### Counter Hierarchy
-
-- **Seconds Counter**: 0-59, enables minute counter at overflow
-- **Minutes Counter**: 0-59, enables hour counter at overflow
-- **Hours Counter**: 0-23, wraps to 0 after 23
-
-## 🧪 Testing and Validation
-
-### Functional Testing
-
-- [x] Time counting accuracy verified
-- [x] All button functions tested
-- [x] Mode transitions confirmed
-- [x] Alarm triggering validated
-- [x] Display multiplexing verified
-
-### Timing Analysis
-
-- [x] Setup/hold times met
-- [x] Clock domain crossings analyzed
-- [x] No timing violations reported
-
-## 👥 Authors
-
-- **Adham Ali** - [adhamahmed804@aucegypt.edu](mailto:adhamahmed804@aucegypt.edu)
-- **Omar Saqr** - [omar_saqr@aucegypt.edu](mailto:omar_saqr@aucegypt.edu)
-- **Ebram Thabet** - [ebram_raafat@aucegypt.edu](mailto:ebram_raafat@aucegypt.edu)
-
-## 📚 Course Information
-
-**Course**: Digital Design  
-**Project**: Project 2 - Digital Clock with Alarm  
-**Institution**: American University in Cairo (AUC)  
-**Academic Year**: 2024
-
-## 📄 License
-
-This project is developed for educational purposes as part of the Digital Design course curriculum.
-
-## 🤝 Contributing
-
-This is an academic project. For questions or suggestions, please contact the authors via email.
-
-## 🔗 Additional Resources
-
-- [Basys 3 Reference Manual](https://reference.digilentinc.com/reference/programmable-logic/basys-3/reference-manual)
-- [Xilinx Vivado Documentation](https://www.xilinx.com/support/documentation/sw_manuals/xilinx2019_1/ug973-vivado-release-notes-install-license.pdf)
-- [Verilog HDL Reference](https://www.intel.com/content/www/us/en/programmable/quartushelp/13.0/reference/glossary/def_verilog.htm)
-
----
-
-**Note**: This README provides comprehensive information about the FPGA digital clock project. For detailed implementation specifics, refer to the individual Verilog source files and the project documentation in the `docs/` directory.
+This repository does not contain an explicit software license. Course-project provenance does not by itself grant redistribution or commercial-use rights.

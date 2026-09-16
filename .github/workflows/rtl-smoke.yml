@@ -1,0 +1,27 @@
+name: RTL focused smoke tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  iverilog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Icarus Verilog
+        run: sudo apt-get update && sudo apt-get install -y iverilog
+      - name: Elaborate maintained top-level RTL
+        run: iverilog -g2012 -s digital_clock_top -o /tmp/clock_top.vvp hardware/verilog_sources/*.v
+      - name: Check display decoding and sensitivity
+        run: |
+          iverilog -g2012 -s tb_seven_segment_display -o /tmp/display.vvp simulation/tb_seven_segment_display.v hardware/verilog_sources/seven_segment_display.v
+          vvp /tmp/display.vvp
+      - name: Check counter modulo and enable
+        run: |
+          iverilog -g2012 -s tb_counter_x_bit -o /tmp/counter.vvp simulation/tb_counter_x_bit.v hardware/verilog_sources/counter_x_bit.v
+          vvp /tmp/counter.vvp

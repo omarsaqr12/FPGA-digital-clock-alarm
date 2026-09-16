@@ -1,0 +1,36 @@
+name: One-time legacy RTL literal repair
+on:
+  push:
+    branches: [review/rtl-evidence-and-readme-20260916]
+permissions:
+  contents: write
+jobs:
+  repair-on-review-branch:
+    if: github.ref == 'refs/heads/review/rtl-evidence-and-readme-20260916'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: review/rtl-evidence-and-readme-20260916
+          persist-credentials: true
+      - name: Replace two unsized concatenation literals in original top module
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('hardware/verilog_sources/digital_clock_top.v')
+          old = path.read_text()
+          needle = 'LD = {0,0,0,0,clk_out};'
+          assert old.count(needle) == 2, f'Expected exactly 2 original alarm LED assignments, got {old.count(needle)}'
+          new = old.replace(needle, "LD = {4'b0000,clk_out};")
+          path.write_text(new)
+          print('Replaced exactly two unsized concatenation literals; no other RTL changed.')
+          PY
+      - name: Commit minimal syntax fix to the review branch
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- hardware/verilog_sources/digital_clock_top.v
+          git commit -m 'fix: size alarm LED concatenation operands for Verilog elaboration'
+          git push origin HEAD:refs/heads/review/rtl-evidence-and-readme-20260916

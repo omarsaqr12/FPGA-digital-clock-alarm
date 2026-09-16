@@ -5,57 +5,35 @@
 // Project: Digital Design Project 2
 // Target Device: Basys 3 FPGA Board
 // Authors: Adham Ali (adhamahmed804@aucegypt.edu)
-//          Omar Saqr (omar_saqr@aucegypt.edu) 
+//          Omar Saqr (omar_saqr@aucegypt.edu)
 //          Ebram Thabet (ebram_raafat@aucegypt.edu)
-//          
-// Description: Generic counter module with configurable width and maximum count value.
-//              Supports both up and down counting with enable control.
+//
+// Configurable modulo-n up/down counter with enable and asynchronous reset.
 //////////////////////////////////////////////////////////////////////////////////
-
 module counter_x_bit #(parameter x = 3, n = 6)(
-    input clk,       
-    input reset,     
-    input en,        
-    input Up_down,   
-    output [x-1:0] count  
+    input clk,
+    input reset,
+    input en,
+    input Up_down,
+    output reg [x-1:0] count
 );
-
-    reg [x-1:0] count;  // Register to hold the count value
-    
+    // The port itself is a register. A separate `reg count` declaration here
+    // previously redeclared an output wire and prevented Icarus elaboration.
     always @(posedge clk or posedge reset) begin
-        // Synchronous reset condition
-        if (reset == 1) begin
-            count <= 0;  // Reset the count to zero
-        end
-        else begin
-            // Check if the counter is enabled
-            if (en == 1) begin
-                // If Up_down is high, count up
-                if (Up_down == 1) begin
-                    // Check if count reached maximum value
-                    if (count == n - 1) begin
-                        count <= 0;  // Reset count if maximum reached
-                    end
-                    else begin
-                        count <= count + 1;  // Increment count
-                    end
-                end
-                else begin
-                    // If Up_down is low, count down
-                    // Check if count reached minimum value
-                    if (count == 0) begin
-                        count <= n - 1;  // Reset count to maximum if minimum reached
-                    end
-                    else begin
-                        count <= count - 1;  // Decrement count
-                    end
-                end
-            end
-            // If counter is not enabled, maintain the current count value
-            else begin
-                count <= count;
+        if (reset) begin
+            count <= 0;
+        end else if (en) begin
+            if (Up_down) begin
+                if (count == n - 1)
+                    count <= 0;
+                else
+                    count <= count + 1'b1;
+            end else begin
+                if (count == 0)
+                    count <= n - 1;
+                else
+                    count <= count - 1'b1;
             end
         end
     end
-
 endmodule
